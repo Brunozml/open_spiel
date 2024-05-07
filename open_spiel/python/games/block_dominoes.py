@@ -20,6 +20,7 @@ https://en.wikipedia.org/wiki/Dominoes#Blocking_game
 
 import copy
 import itertools
+import collections
 
 import numpy as np
 
@@ -253,8 +254,38 @@ class BlockDominoesState(pyspiel.State):
     """String for debug purposes. No particular semantics are required."""
     hand0 = [str(c) for c in self.hands[0]]
     hand1 = [str(c) for c in self.hands[1]]
-    history = [str(a) for a in self.actions_history]
-    return f"hand0:{hand0} hand1:{hand1} history:{history}"
+    board = self.draw_board()
+    return (
+              f"hand0:{hand0}\n"
+              f"hand1:{hand1}\n"
+              f"board:{board}\n"
+    )
+  
+  def draw_board(self):
+    '''Draw the board' in a human readable format'''
+    board = collections.deque()
+    current_open_edges = None
+    for action in self.actions_history:
+      # check if action is played on an empty board
+      if action.edge is None:
+        board.append(action.tile)
+        current_open_edges = list(action.tile)
+      # check if action edge matches last played edge in the left or right
+      elif action.edge == current_open_edges[0]:
+        # invert the tile if the edge is on the right:
+        tile = (action.tile[1], action.tile[0]) if action.tile[0] == current_open_edges[0] else action.tile
+        board.appendleft(tile)
+
+      elif action.edge == current_open_edges[1]:
+        # invert the tile if the edge is on the left:
+        tile = (action.tile[1], action.tile[0]) if action.tile[1] == current_open_edges[1] else action.tile
+        board.append(tile)
+
+      current_open_edges = board[0][0], board[-1][1]
+    
+    assert len(board) == len(self.actions_history) # TODO: move this to a test
+    return list(board)
+
 
 
 class BlockDominoesObserver:

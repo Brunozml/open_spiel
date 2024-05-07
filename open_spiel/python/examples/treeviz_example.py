@@ -20,10 +20,10 @@ from absl import logging
 
 import pyspiel
 from open_spiel.python.visualizations import treeviz
-
+import open_spiel.python.games
 FLAGS = flags.FLAGS
-flags.DEFINE_string("game", "kuhn_poker", "Name of the game")
-flags.DEFINE_string("out", "/tmp/gametree.png", "Name of output file, e.g., "
+flags.DEFINE_string("game", "python_block_dominoes", "Name of the game")
+flags.DEFINE_string("out", "open_spiel/python/examples/saved_examples/tiny_dominoes_gametree.png", "Name of output file, e.g., "
                     "[*.png|*.pdf].")
 flags.DEFINE_enum("prog", "dot", ["dot", "neato", "circo"], "Graphviz layout.")
 flags.DEFINE_boolean("group_infosets", False, "Whether to group infosets.")

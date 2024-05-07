@@ -31,6 +31,7 @@ from scipy import stats
 import torch
 from torch import nn
 import torch.nn.functional as F
+import pickle
 
 from open_spiel.python import policy
 import pyspiel
@@ -322,6 +323,9 @@ class DeepCFRSolver(policy.Policy):
     """
     advantage_losses = collections.defaultdict(list)
     for _ in range(self._num_iterations):
+      # print every 1000 iterations
+      if self._iteration % 100 == 0: # TODO: remove later
+        print(f"Iteration: {self._iteration}")
       for p in range(self._num_players):
         for _ in range(self._num_traversals):
           self._traverse_game_tree(self._root_node, p)
@@ -511,3 +515,14 @@ class DeepCFRSolver(policy.Policy):
       self._optimizer_policy.step()
 
     return loss_strategy.detach().numpy()
+  
+  def save(self, filepath):
+      """Saves the CFRSolver object to a file."""
+      with open(filepath, 'wb') as f:
+          pickle.dump(self, f)
+
+  @staticmethod
+  def load(filepath):
+      """Loads a CFRSolver object from a file."""
+      with open(filepath, 'rb') as f:
+          return pickle.load(f)
