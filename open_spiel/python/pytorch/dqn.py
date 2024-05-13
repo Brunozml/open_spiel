@@ -418,17 +418,17 @@ class DQN(rl_agent.AbstractAgent):
       torch.save(self._optimizer, optimizer_data_path)
 
   def load(self, data_path, optimizer_data_path=None):
-    """Load checkpoint/trained model and optimizer.
+      """Load checkpoint/trained model and optimizer.
 
-    Args:
-      data_path: Path for loading model. It can be relative or absolute but the
-        filename should be included. For example: q_network.pt or
-        /path/to/q_network.pt
-      optimizer_data_path: Path for loading the optimizer states. It can be
-        relative or absolute but the filename should be included. For example:
-        optimizer.pt or /path/to/optimizer.pt
-    """
-    torch.load(self._q_network, data_path)
-    torch.load(self._target_q_network, data_path)
-    if optimizer_data_path is not None:
-      torch.load(self._optimizer, optimizer_data_path)
+      Args:
+        data_path: Path for loading model. It can be relative or absolute but the
+          filename should be included. For example: q_network.pt or
+          /path/to/q_network.pt
+        optimizer_data_path: Path for loading the optimizer states. It can be
+          relative or absolute but the filename should be included. For example:
+          optimizer.pt or /path/to/optimizer.pt
+      """
+      self._q_network = torch.load(data_path)
+      self._target_q_network = torch.load(data_path)
+      if optimizer_data_path is not None:
+          self._optimizer = torch.load(optimizer_data_path)

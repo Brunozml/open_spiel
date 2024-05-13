@@ -27,6 +27,7 @@ import collections
 import random
 import numpy as np
 import tensorflow.compat.v1 as tf
+import pickle
 
 from open_spiel.python import policy
 from open_spiel.python import simple_nets
@@ -441,3 +442,14 @@ class DeepCFRSolver(policy.Policy):
               self._iter_ph: np.array(iterations),
           })
     return loss_strategy
+
+  # def save(self, filepath):
+  #     """Saves the CFRSolver object to a file."""
+  #     with open(filepath, 'wb') as f:
+  #         pickle.dump(self, f)
+
+  # @staticmethod
+  # def load(filepath):
+  #     """Loads a CFRSolver object from a file."""
+  #     with open(filepath, 'rb') as f:
+  #         return pickle.load(f)

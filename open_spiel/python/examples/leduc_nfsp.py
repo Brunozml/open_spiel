@@ -18,22 +18,35 @@ from absl import app
 from absl import flags
 from absl import logging
 import tensorflow.compat.v1 as tf
+import matplotlib.pyplot as plt
+import numpy as np
 
 from open_spiel.python import policy
 from open_spiel.python import rl_environment
 from open_spiel.python.algorithms import exploitability
 from open_spiel.python.algorithms import nfsp
+from open_spiel.python.algorithms import random_agent
+
+import open_spiel.python.games
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string("game_name", "leduc_poker",
+flags.DEFINE_string("game_name", "python_block_dominoes",
                     "Name of the game.")
 flags.DEFINE_integer("num_players", 2,
                      "Number of players.")
-flags.DEFINE_integer("num_train_episodes", int(20e6),
+flags.DEFINE_integer("num_train_episodes", int(1e5),
                      "Number of training episodes.")
 flags.DEFINE_integer("eval_every", 10000,
                      "Episode frequency at which the agents are evaluated.")
+# flags.DEFINE_integer("save_every", 10000, "Episode frequency at which the agents' models are saved.")
+flags.DEFINE_bool("use_checkpoints", True, "Save/load neural network weights.")
+flags.DEFINE_string("checkpoint_dir", "open_spiel/python/examples/agents/nfsp",
+                    "Directory to save/load the agent.") # "/tmp/nfsp_test",
+flags.DEFINE_string("evaluation_metric", "nash_conv",
+                    "Choose from 'exploitability', 'nash_conv'.") # NOTE: deactivated for now
+
+# model hyperparameters
 flags.DEFINE_list("hidden_layers_sizes", [
     128,
 ], "Number of hidden units in the avg-net and Q-net.")
@@ -67,11 +80,67 @@ flags.DEFINE_float("epsilon_start", 0.06,
                    "Starting exploration parameter.")
 flags.DEFINE_float("epsilon_end", 0.001,
                    "Final exploration parameter.")
-flags.DEFINE_string("evaluation_metric", "nash_conv",
-                    "Choose from 'exploitability', 'nash_conv'.")
-flags.DEFINE_bool("use_checkpoints", True, "Save/load neural network weights.")
-flags.DEFINE_string("checkpoint_dir", "/tmp/nfsp_test",
-                    "Directory to save/load the agent.")
+
+def eval_against_random_bots(env, trained_agents, random_agents, num_episodes):
+  """Evaluates `trained_agents` against `random_agents` for `num_episodes`."""
+  num_players = len(trained_agents)
+  sum_episode_rewards = np.zeros(num_players)
+  for player_pos in range(num_players): # player_pos is the position of the trained agent. we alternate between the two players.
+    cur_agents = random_agents[:] # Copy the random agents.
+    cur_agents[player_pos] = trained_agents[player_pos] # Replace with trained agent.
+    for _ in range(num_episodes): 
+      time_step = env.reset()
+      episode_rewards = 0
+      while not time_step.last():
+        player_id = time_step.observations["current_player"]
+        if env.is_turn_based:
+          agent_output = cur_agents[player_id].step(
+              time_step, is_evaluation=True)
+          action_list = [agent_output.action]
+        else: # In simultaneous move games, we need to pass all agent outputs to the environment.
+          agents_output = [
+              agent.step(time_step, is_evaluation=True) for agent in cur_agents
+          ]
+          action_list = [agent_output.action for agent_output in agents_output]
+        time_step = env.step(action_list)
+        episode_rewards += time_step.rewards[player_pos] # Add the reward of the trained agent ONLY
+      sum_episode_rewards[player_pos] += episode_rewards
+
+  return sum_episode_rewards / num_episodes
+ 
+#          if FLAGS.verbose:
+#             _print_bot_action_probabilities(curr_bot, state, action_probs)
+#         return action
+
+# def _print_bot_action_probabilities(curr_bot, state, action_probs):
+#     """Print bot action probabilities"""
+#     print(f"--- {curr_bot['type']} action probabilities ----")
+#     for action, probability in action_probs.items():
+#         print(f"    Action: {state.action_to_string(action)}, Probability: {probability}")
+#     print(f"--- ------------------- ----")
+
+def plot_rewards(rewards):
+            # plot the rewards
+            fig = plt.figure()
+            plt.plot([r[0] for r in rewards], color='blue', label='Starting agent')  # First reward in blue
+            plt.plot([r[1] for r in rewards], color='red', label='Agent 2')  # Second reward in red
+            plt.xlabel('Training Iterations')
+            plt.ylabel('Reward')
+            plt.title(f'{FLAGS.game_name}: Reward vs Training Iterations')
+            plt.legend()
+            plt.savefig(f'open_spiel/python/examples/saved_examples/{FLAGS.game_name}_reward_plot_nfsp-08-05.png')
+        
+
+def plot_iteration_times(iteration_times):
+    fig = plt.figure()
+    plt.plot(iteration_times, color='green')
+    plt.xlabel('Iteration')
+    plt.ylabel('Time (seconds)')
+    plt.title(f'{FLAGS.game_name}: Time per Iteration')
+    plt.savefig(f'open_spiel/python/examples/saved_examples/{FLAGS.game_name}_time_plot-nfsp-08-05.png')
+
+
+
 
 
 class NFSPPolicies(policy.Policy):
@@ -110,9 +179,10 @@ def main(unused_argv):
   logging.info("Loading %s", FLAGS.game_name)
   game = FLAGS.game_name
   num_players = FLAGS.num_players
+  rewards = []
 
-  env_configs = {"players": num_players}
-  env = rl_environment.Environment(game, **env_configs)
+  # env_configs = {"players": num_players}
+  env = rl_environment.Environment(game)#, **env_configs)
   info_state_size = env.observation_spec()["info_state"][0]
   num_actions = env.action_spec()["num_actions"]
 
@@ -135,6 +205,13 @@ def main(unused_argv):
       "epsilon_end": FLAGS.epsilon_end,
   }
 
+    # random agents for evaluation
+  random_agents = [
+      random_agent.RandomAgent(player_id=idx, num_actions=num_actions)
+      for idx in range(num_players)
+  ]
+
+
   with tf.Session() as sess:
     # pylint: disable=g-complex-comprehension
     agents = [
@@ -154,17 +231,21 @@ def main(unused_argv):
       if (ep + 1) % FLAGS.eval_every == 0:
         losses = [agent.loss for agent in agents]
         logging.info("Losses: %s", losses)
-        if FLAGS.evaluation_metric == "exploitability":
-          # Avg exploitability is implemented only for 2 players constant-sum
-          # games, use nash_conv otherwise.
-          expl = exploitability.exploitability(env.game, joint_avg_policy)
-          logging.info("[%s] Exploitability AVG %s", ep + 1, expl)
-        elif FLAGS.evaluation_metric == "nash_conv":
-          nash_conv = exploitability.nash_conv(env.game, joint_avg_policy)
-          logging.info("[%s] NashConv %s", ep + 1, nash_conv)
-        else:
-          raise ValueError(" ".join(("Invalid evaluation metric, choose from",
-                                     "'exploitability', 'nash_conv'.")))
+        r_mean = eval_against_random_bots(env, agents, random_agents, 1000)
+        logging.info("[%s] Mean episode rewards %s", ep + 1, r_mean)
+        rewards.append(r_mean)
+        plot_rewards(rewards)
+        # if FLAGS.evaluation_metric == "exploitability":
+        #   # Avg exploitability is implemented only for 2 players constant-sum
+        #   # games, use nash_conv otherwise.
+        #   expl = exploitability.exploitability(env.game, joint_avg_policy)
+        #   logging.info("[%s] Exploitability AVG %s", ep + 1, expl)
+        # elif FLAGS.evaluation_metric == "nash_conv":
+        #   nash_conv = exploitability.nash_conv(env.game, joint_avg_policy)
+        #   logging.info("[%s] NashConv %s", ep + 1, nash_conv)
+        # else:
+        #   raise ValueError(" ".join(("Invalid evaluation metric, choose from",
+        #                              "'exploitability', 'nash_conv'.")))
         if FLAGS.use_checkpoints:
           for agent in agents:
             agent.save(FLAGS.checkpoint_dir)

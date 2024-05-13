@@ -213,6 +213,7 @@ def main(_):
     print("Starting...")
 
     for ep in range(FLAGS.num_train_episodes):
+      # Evaluate the agents
       if (ep + 1) % FLAGS.eval_every == 0:
         r_mean = eval_against_fixed_bots(env, learning_agents, exploitee_agents,
                                          FLAGS.eval_episodes)
@@ -234,6 +235,7 @@ def main(_):
       agents_round1 = [learning_agents[0], exploitee_agents[1]]
       agents_round2 = [exploitee_agents[0], learning_agents[1]]
 
+      # Play a few episodes of the game for training.
       for agents in [agents_round1, agents_round2]:
         time_step = env.reset()
         while not time_step.last():
