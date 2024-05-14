@@ -26,9 +26,9 @@ import numpy as np
 import pyspiel
 
 _NUM_PLAYERS = 2
-_PIPS = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+_PIPS = [0.0, 1.0, 2.0] # , 3.0, 4.0, 5.0, 6.0]
 _DECK = list(itertools.combinations_with_replacement(_PIPS, 2))
-_EDGES = [None, 0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+_EDGES = [None, 0.0, 1.0, 2.0] # , 3.0, 4.0, 5.0, 6.0]
 
 
 class Action:
@@ -59,9 +59,10 @@ def create_possible_actions():
 _ACTIONS = create_possible_actions()
 _ACTIONS_STR = [str(action) for action in _ACTIONS]
 
-_HAND_SIZE = 7
 
-_MAX_GAME_LENGTH = 28
+_HAND_SIZE = 2 # 
+
+_MAX_GAME_LENGTH = 4
 
 _GAME_TYPE = pyspiel.GameType(
     short_name="python_block_dominoes",
@@ -130,7 +131,7 @@ class BlockDominoesState(pyspiel.State):
     """Returns id of the next player to move, or TERMINAL if game is over."""
     if self._game_over:
       return pyspiel.PlayerId.TERMINAL
-    if len(self.deck) > 14:
+    if len(self.deck) > 2:
       return pyspiel.PlayerId.CHANCE
     return self._next_player
 

@@ -24,7 +24,7 @@ from open_spiel.python.bots import uniform_random
 import pyspiel
 
 _GAME_STRING = flags.DEFINE_string(
-    "game_string", "tic_tac_toe", "Name of the game"
+    "game_string", "python_block_dominoes", "Name of the game"
 )
 _PLAYER0_TYPE = flags.DEFINE_string(
     "player0_type", "human", "Player 0 type (human or uniform)"

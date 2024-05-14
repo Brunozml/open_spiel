@@ -16,8 +16,8 @@
 
 from absl import app
 from absl import flags
+from absl import logging
 
-# pylint: disable=unused-import
 from open_spiel.python import games
 from open_spiel.python.algorithms import get_all_states
 from open_spiel.python.mfg import games as mfg_games
@@ -25,21 +25,21 @@ import pyspiel
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string("game", "tic_tac_toe", "Name of the game")
+flags.DEFINE_string("game", "python_block_dominoes", "Name of the game")
 flags.DEFINE_integer("players", None, "Number of players")
 flags.DEFINE_integer("depth_limit", -1, "Depth limit to stop at")
 flags.DEFINE_bool("include_terminals", True, "Include terminal states?")
-flags.DEFINE_bool("include_chance_states", True, "Include chance states?")
+flags.DEFINE_bool("include_chance_states", False, "Include chance states?")
 
 
 def main(_):
-  games_list = pyspiel.registered_games()
-  print("Registered games:")
-  for game in games_list:
-    print(" ", game.short_name)
-  print()
+  # games_list = pyspiel.registered_games()
+  # print("Registered games:")
+  # for game in games_list:
+  #   print(" ", game.short_name)
+  # print()
 
-  print("Creating game:", FLAGS.game)
+  logging.info("Creating game: %s", FLAGS.game)
   params = {}
   if FLAGS.players is not None:
     params["players"] = FLAGS.players
@@ -56,6 +56,7 @@ def main(_):
     count += 1
 
   print()
+  logging.info("Done.")
   print("Total: {} states.".format(count))
 
 
