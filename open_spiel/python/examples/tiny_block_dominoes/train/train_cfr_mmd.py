@@ -23,16 +23,15 @@ flags.DEFINE_integer("eval_every", 200,
                      "Episode frequency at which the agents are evaluated.")
 flags.DEFINE_integer("save_every", 5000,
                      "Episode frequency at which the agents are saved.")
-flags.DEFINE_string("checkpoint_dir", "open_spiel/python/examples/saved_examples/tiny_block_dominoes/agents/", 
+flags.DEFINE_string("checkpoint_dir", "open_spiel/python/examples/tiny_block_dominoes/agents/", 
                     "Directory to save/load the agent models.")
-flags.DEFINE_string("results_dir", "open_spiel/python/examples/saved_examples/tiny_block_dominoes/results/dominoes/", 
+flags.DEFINE_string("results_dir", "open_spiel/python/examples/tiny_block_dominoes/results/train/", 
                     "Directory to save the data.")
 
 
 
 # hyperparameters
-alphas = [0.5,0.2, 0.1,0.05] # [0.5,0.2
-flags.DEFINE_float("alpha", 0.1, "Learning rate for the MMD model.")
+flags.DEFINE_float("alpha", 0.05, "Learning rate for the MMD model.")
 
 # main loop
 
@@ -43,10 +42,7 @@ def main(unused_argv):
     game = pyspiel.load_game(FLAGS.game)
     learners = {"cfr": cfr.CFRSolver(game),
                 "cfrplus": cfr.CFRPlusSolver(game),
-                # f"mmd_dilated{alphas[0]}": mmd_dilated.MMDDilatedEnt(game, alpha=alphas[0], stepsize = alphas[0]/10),
-                # f"mmd_dilated{alphas[1]}": mmd_dilated.MMDDilatedEnt(game, alpha=alphas[1], stepsize = alphas[1]/10),
-                # f"mmd_dilated{alphas[2]}": mmd_dilated.MMDDilatedEnt(game, alpha=alphas[2], stepsize = alphas[2]/10),
-                # f"mmd_dilated{alphas[3]}": mmd_dilated.MMDDilatedEnt(game, alpha=alphas[3], stepsize = alphas[3]/10)
+                "mmd": mmd_dilated.MMDModel(game, FLAGS.alpha)
     }
     for alg_name, learner in learners.items():
       df = pd.DataFrame({})

@@ -36,9 +36,9 @@ flags.DEFINE_integer("eval_every", 100_000,
                      "Episode frequency at which the agents are evaluated.")
 flags.DEFINE_integer("save_every", int(5e5),
                      "Episode frequency at which the agents are saved.")
-flags.DEFINE_string("checkpoint_dir", "open_spiel/python/examples/saved_examples/tiny_block_dominoes/agents/", 
+flags.DEFINE_string("checkpoint_dir", "open_spiel/python/examples/tiny_block_dominoes/agents/", 
                     "Directory to save/load the agent models.")
-flags.DEFINE_string("results_dir", "open_spiel/python/examples/saved_examples/tiny_block_dominoes/results/", 
+flags.DEFINE_string("results_dir", "open_spiel/python/examples/tiny_block_dominoes/results/train/", 
                     "Directory to save the data.")
 
 
