@@ -16,9 +16,9 @@ import open_spiel.python.games
 
 
 game_name = "python_block_dominoes"
-results_dir = "open_spiel/python/examples/saved_examples/tiny_block_dominoes/results/h2h/"
-agents_dir = "open_spiel/python/examples/saved_examples/tiny_block_dominoes/agents/"
-agent_choices = ["cfr", "cfrplus", "mmd_dilated", "random"]
+results_dir = "open_spiel/python/examples/tiny_block_dominoes/results/h2h/"
+agents_dir = "open_spiel/python/examples/tiny_block_dominoes/agents/"
+agent_choices = ["cfr", "cfrplus", "mmd", "random", "qlearner"]
 num_episodes = 1_000
 seeds = [0, 1, 2]
 
@@ -31,7 +31,17 @@ def make_player(dir: str, game: str, agent: str, seed: str):
         return player_factory(policy)
     elif agent == "random":
         return random
-    ...
+    elif agent == "mmd":
+        with open (f"{dir}/{agent}_dilated_{game}_1000.pkl", 'rb') as f:
+            learner = pickle.load(f)
+        policy = learner.get_avg_policies()
+        return player_factory(policy)
+    elif agent == "qlearner":
+        with open (f"{dir}/{agent}_{game}_3000000.pkl", 'rb') as f:
+            policy = pickle.load(f)
+        return player_factory(policy)
+    else:
+        raise ValueError(f"Unknown agent: {agent}")
 
 
 def random(state: pyspiel.State) -> int:
@@ -50,7 +60,6 @@ def player_factory(policy):
 def matchup(game: pyspiel.Game,
             players: list[Callable[[list[float], list[int]], int]],
             num_episodes: int,
-            fn: str,
 ) -> None:
     """Matchup players in a game for a number of episodes."""
     results = []
@@ -69,7 +78,7 @@ def matchup(game: pyspiel.Game,
         # record results
         results.append(state.returns())
         # save results
-    np.save(fn + ".npy", results)
+    return results
 
 def main():
     parser = argparse.ArgumentParser()
@@ -89,27 +98,25 @@ def main():
         [make_player(agents_dir, game_name, agent, s) for s in seeds]
         for agent in [args.agent1, args.agent2]
     ]
+    colname = f"{args.agent1} Return Against {args.agent2}"
+    df = pd.DataFrame(columns=  [colname, "Order"])
 
-    p1_outcomes = []
-    moving = []
     for s1, a1 in enumerate(agents[0]):
         for s2, a2 in enumerate(agents[1]):
             # agent 1 moves first
-            fn1 = results_dir + f"/{game_name}_{args.agent1}_{s1}_{args.agent2}_{s2}"
-            matchup(game, [a1, a2], num_episodes, fn1)
-            p1_outcomes += np.load(fn1 + ".npy")[:, 0].tolist()
-            moving += (num_episodes // 2) * ["First Moving"]
-            moving += (num_episodes // 2) * ["First Moving"]
-            # agent 2 moves first
-            fn2 = results_dir + f"/{game_name}_{args.agent2}_{s2}_{args.agent1}_{s1}"
-            matchup(game, [a2, a1], num_episodes, fn2)
-            p1_outcomes += np.load(fn2 + ".npy")[:, 1].tolist()
-            moving += (num_episodes // 2) * ["Second Moving"]
-            moving += (num_episodes // 2) * ["Second Moving"]
+            results = matchup(game, [a1, a2], num_episodes)
+            # Append results to the DataFrame
+            for result in results:
+                df = pd.concat([df, pd.DataFrame({colname: [result[0]], "Order": [0]})], ignore_index=True)
 
-            print(len(p1_outcomes), len(moving))
-    colname = f"{args.agent1} Return Against {args.agent2}"
-    df = pd.DataFrame({colname: p1_outcomes, "Order": moving})
+            # agent 2 moves first
+            results = matchup(game, [a2, a1], num_episodes)
+            # Append results to the DataFrame
+            for result in results:
+                df = pd.concat([df, pd.DataFrame({colname: [result[1]], "Order": [1]})], ignore_index=True)
+
+
+
     # save
     df.to_csv(results_dir + f"{game_name}_{args.agent1}_{args.agent2}.csv")
     # plot
@@ -120,6 +127,34 @@ def main():
     print(f"Expected {colname}: {expected_return} +/- {std_err}")
 
 
+from open_spiel.python import policy
+from open_spiel.python import rl_environment
+class QLearnerPolicies(policy.TabularPolicy):
+  """Joint policy to be evaluated."""
+
+  def __init__(self, env, dqn_policies):
+    game = env.game
+    player_ids = [0, 1]
+    super(QLearnerPolicies, self).__init__(game, player_ids)
+    self._policies = dqn_policies
+    self._obs = {"info_state": [None, None], "legal_actions": [None, None]}
+
+  def action_probabilities(self, state, player_id=None):
+    cur_player = state.current_player()
+    legal_actions = state.legal_actions(cur_player)
+
+    self._obs["current_player"] = cur_player
+    self._obs["info_state"][cur_player] = (
+        state.information_state_tensor(cur_player))
+    self._obs["legal_actions"][cur_player] = legal_actions
+
+    info_state = rl_environment.TimeStep(
+        observations=self._obs, rewards=None, discounts=None, step_type=None)
+
+    # with self._policies[cur_player].temp_mode_as(self._mode):
+    p = self._policies[cur_player].step(info_state, is_evaluation=True).probs
+    prob_dict = {action: p[action] for action in legal_actions}
+    return prob_dict
 
 
 if __name__ == "__main__":

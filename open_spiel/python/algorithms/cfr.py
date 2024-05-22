@@ -446,7 +446,7 @@ class CFRPlusSolver(_CFRSolver):
   More generally, it should approach a no-regret set, which corresponds to the
   set of coarse-correlated equilibria. See https://arxiv.org/abs/1305.0034
 
-  CFR can be view as a policy iteration algorithm. Importantly, the policies
+  CFR can be viewed as a policy iteration algorithm. Importantly, the policies
   themselves do not converge to a Nash policy, but their average does.
 
   See https://poker.cs.ualberta.ca/publications/2015-ijcai-cfrplus.pdf
