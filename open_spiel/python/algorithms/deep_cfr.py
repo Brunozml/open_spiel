@@ -24,7 +24,9 @@ train the networks.
 """
 
 import collections
+import os
 import random
+from absl import logging
 import numpy as np
 import tensorflow.compat.v1 as tf
 import pickle
@@ -223,6 +225,15 @@ class DeepCFRSolver(policy.Policy):
         self._advantage_networks[i](self._info_state_ph)
         for i in range(self._num_players)
     ]
+
+    # ADDED to save the models  
+    self._savers = [
+      (f"adv_network_{i}", tf.train.Saver(var_list=self._advantage_networks[i].variables))
+      for i in range(self._num_players)
+    ]
+    self._savers += [("policy_network", tf.train.Saver(var_list=self._policy_network.variables))]
+
+    # Loss
     self._loss_advantages = []
     self._optimizer_advantages = []
     self._learn_step_advantages = []
@@ -443,13 +454,49 @@ class DeepCFRSolver(policy.Policy):
           })
     return loss_strategy
 
-  # def save(self, filepath):
-  #     """Saves the CFRSolver object to a file."""
-  #     with open(filepath, 'wb') as f:
-  #         pickle.dump(self, f)
+  def _full_checkpoint_name(self, checkpoint_dir, name):
+    checkpoint_filename =  name # "_".join([name, "pid" + str(self.player_id)])
+    return os.path.join(checkpoint_dir, checkpoint_filename)
 
-  # @staticmethod
-  # def load(filepath):
-  #     """Loads a CFRSolver object from a file."""
-  #     with open(filepath, 'rb') as f:
-  #         return pickle.load(f)
+  def _latest_checkpoint_filename(self, name):
+    checkpoint_filename = name # "_".join([name, "pid" + str(self.player_id)])
+    return checkpoint_filename + "_latest"
+  
+  def has_checkpoint(self, checkpoint_dir):
+    for name, _ in self._savers:
+      if tf.train.latest_checkpoint(
+          self._full_checkpoint_name(checkpoint_dir, name),
+          os.path.join(checkpoint_dir,
+                       self._latest_checkpoint_filename(name))) is None:
+        return False
+    return True
+  
+  def save(self, checkpoint_dir):
+    """Saves the advantage networks for each player and the policy network to a checkpoint. 
+
+    Note that this does not save the experience replay buffers and should
+    only be used to restore the agent's policy, not resume training.
+
+    Args:
+      checkpoint_dir: directory where checkpoints will be saved.
+    """
+    for name, saver in self._savers:
+      path = saver.save(
+          self._session,
+          self._full_checkpoint_name(checkpoint_dir, name),
+          latest_filename=self._latest_checkpoint_filename(name))
+      logging.info("Saved to path: %s", path)
+    
+  def restore(self, checkpoint_dir):
+    """Restores the advantage networks for each player and the policy network from a checkpoint.
+
+    Note that this does not restore the experience replay buffers and should
+    only be used to restore the agent's policy, not resume training.
+
+    Args:
+      checkpoint_dir: directory from which checkpoints will be restored.
+    """
+    for name, saver in self._savers:
+      full_checkpoint_dir = self._full_checkpoint_name(checkpoint_dir, name)
+      logging.info("Restoring checkpoint: %s", full_checkpoint_dir)
+      saver.restore(self._session, full_checkpoint_dir)
