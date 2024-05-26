@@ -27,7 +27,7 @@ from open_spiel.python import policy
 from open_spiel.python.algorithms import expected_game_score
 from open_spiel.python.algorithms import exploitability
 # from open_spiel.python.jax import deep_cfr
-from open_spiel.python.pytorch import deep_cfr
+from open_spiel.python.algorithms import deep_cfr
 import pyspiel
 
 FLAGS = flags.FLAGS
